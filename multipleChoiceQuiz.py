@@ -1,0 +1,88 @@
+import openai
+
+#객관식#
+def generate_multiple_choice_quiz_with_check(summary, previous_quiz=None):
+    """
+    기사 요약을 기반으로 객관식 문제를 생성하고, 정답을 반환합니다.
+    두 번째 문제는 첫 번째 문제와 다르게 출제됩니다.
+    """
+    # 객관식 퀴즈 생성 프롬프트
+    prompt_quiz = f"""
+    당신은 '객관식 퀴즈 생성기'라는 역할을 맡게 됩니다.
+    주어진 아티클 요약을 기반으로 5지 선다형 객관식 문제를 작성하세요.
+
+    ## 작업 순서
+      1. 아티클 분석: 제공된 아티클 요약 내용을 분석하여 주요 내용을 파악합니다.
+      2. 퀴즈 출제: 아티클 요약 내용을 기반으로 한 개의 객관식 문제를 작성합니다.
+      3. 선택지 작성: 정답 포함, 총 5개의 선택지를 작성합니다.
+
+    ## 퀴즈의 구성 내용은 매번 바뀌게 출력한다. 문제1과 문제2가 같으면 절대 안 됩니다.
+    ## 첫 번째 문제와 중복되지 않도록 해야 하며, 두 번째 문제는 완전히 다른 질문이어야 합니다.
+
+    {f"단, 이전 문제와 동일한 문제를 출제하지 않도록 주의해주세요. 이전 문제: {previous_quiz}" if previous_quiz else ""}
+
+    ## 정답을 화면에 절대 출력하지 않도록 합니다.
+
+    아티클 요약:
+    {summary}
+    객관식 문제:
+    """
+
+    response_quiz = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "당신은 객관식 퀴즈 생성기입니다."},
+            {"role": "user", "content": prompt_quiz}
+        ],
+        max_tokens=300,
+        temperature=0
+    )
+    quiz = response_quiz["choices"][0]["message"]["content"].strip()
+
+    # 정답 생성 프롬프트
+    prompt_answer = f"""
+    당신은 '정답 생성기'라는 역할을 맡게 됩니다.
+    주어진 객관식 문제에서 올바른 정답을 선택하고, 그 번호를 숫자로만 반환하세요.
+    ##주의사항
+    퀴즈를 분석후, 정답은 아티클 요약문의 내용을 바탕으로 생성해야한다.
+    ##예시
+    1, 2, 3, 4, 5 (단, 숫자만 반환해야 하며, 다른 텍스트는 포함하지 마세요)
+    아티클 요약문:
+    {summary}
+    객관식 문제:
+    {quiz}
+    정답:
+    """
+
+    response_answer = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "당신은 정답 생성기입니다."},
+            {"role": "user", "content": prompt_answer}
+        ],
+        max_tokens=5,
+        temperature=0
+    )
+
+    # 정답을 추출할 때 '정답을 숫자로'와 같은 잘못된 값이 나오지 않도록 처리
+    answer_content = response_answer["choices"][0]["message"]["content"].strip()
+
+    # 모델 응답에서 숫자만 추출
+    try:
+        correct_answer = int(answer_content)  # 실제로 정답 번호가 숫자로 반환되는지 확인
+    except ValueError:
+        print(f"오류: 정답을 추출할 수 없습니다. 응답 내용: {answer_content}")
+        correct_answer = None  # 정답이 없으면 None 반환
+
+    return quiz, correct_answer
+
+
+
+#채점
+def check_answer(user_answer, correct_answer):
+    """
+    사용자 답안과 정답을 비교하여 점수를 반환합니다.
+    정답 시 2점, 오답 시 0점을 반환합니다.
+    """
+    return 2 if user_answer == correct_answer else 0
+
