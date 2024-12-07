@@ -96,8 +96,8 @@ def extract_keywords(query, user_feedback, max_keywords=3):
 
 
 #기사 서치#
-Google_SEARCH_ENGINE_ID = "c00dbc74a71f84529"
-Google_API_KEY = "AIzaSyAI2DG_1wQxrve0S4qQTOcTPaT_UXAI2Os"
+Google_SEARCH_ENGINE_ID = ""
+Google_API_KEY = ""
 
 # wanted_row_per_site = 3 # 각 사이트당 결과 개수
 # sites = ["bbc.com",
