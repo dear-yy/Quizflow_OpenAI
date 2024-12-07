@@ -4,6 +4,8 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import json
+import os
+from dotenv import load_dotenv
 
 #키워드 추출
 """
@@ -96,8 +98,6 @@ def extract_keywords(query, user_feedback, max_keywords=3):
 
 
 #기사 서치#
-Google_SEARCH_ENGINE_ID = ""
-Google_API_KEY = ""
 
 # wanted_row_per_site = 3 # 각 사이트당 결과 개수
 # sites = ["bbc.com",
@@ -112,6 +112,11 @@ Google_API_KEY = ""
 #          ]
 
 def Google_API(query, wanted_row_per_site, sites):
+    # .env 파일에서 환경 변수 로드인
+    load_dotenv()
+    Google_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+    Google_API_KEY = os.getenv("GOOGLE_API_KEY")
+    
     # 각 사이트의 결과를 모으기 위한 리스트
     df_google_list = []
 

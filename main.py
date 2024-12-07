@@ -46,25 +46,20 @@ from descriptiveQuiz import (
 )
 
 
-
-# .env 파일에서 환경 변수 로드
+# .env 파일에서 환경 변수 로드인
 load_dotenv()
 
-# 환경 변수에서 OpenAI API 키 가져오기
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# # OpenAI 키 확인
-# if not openai.api_key:
-#     raise ValueError("OpenAI API Key가 설정되지 않았습니다. .env 파일을 확인하세요.")
+# 환경 변수에서 키 가져오기
+openai.api_key = os.getenv("OPENAI_API_KEY")  
 
 
 
 ###실행###
 # 사용자에 학습하길 원하는 분야에 대한 입력을 요청
-user_feedback = input("안녕하세요!\n🔍 어떤 주제에 대해 학습하고 싶으신가요? 입력해주시면 관련된 퀴즈로 안내드릴게요!\n >>");
+user_feedback = input("안녕하세요!\n🔍 어떤 주제에 대해 학습하고 싶으신가요? 입력해주시면 관련된 퀴즈로 안내드릴게요!\n >>")
 
 # 퀴즈 시작을 알리는 메시지 출력
-print("\n🎉퀴즈를 시작합니다! 최선을 다해보세요!✨");
+print("\n🎉퀴즈를 시작합니다! 최선을 다해보세요!✨")
 
 
 wanted_row_per_site = 3 # 각 사이트당 결과 개수
