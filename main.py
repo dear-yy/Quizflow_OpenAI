@@ -104,7 +104,11 @@ for k in range(3):
 
     # find recommended article
     info_for_the_article = process_recommend_article(df, user_feedback)
-    recommend_article_body = info_for_the_article.iloc[0]['Body']  # URL 추출
+
+    
+    # URL 추출
+    # IndexError: single positional indexer is out-of-bounds -> recommend_article_body (DataFrame)이 빈 경우 종종 발생!
+    recommend_article_body = info_for_the_article.iloc[0]['Body']
 
     #기사 요약 출력
     article_summary = summarize_article(recommend_article_body)
@@ -157,16 +161,17 @@ for k in range(3):
     quiz3, model_answer3 = generate_descriptive_quiz(article_summary) # 퀴즈 & 모범답안 생성
     print(f"출제된 퀴즈: \n{quiz3}\n")
     while True:
-    # 사용자 답변 입력
-    user_answer3 = input("\n퀴즈에 대한 답변을 입력하세요 (2문장 이내로 작성): ")
+        # 사용자 답변 입력
+        user_answer3 = input("\n퀴즈에 대한 답변을 입력하세요 (2문장 이내로 작성): ")
 
-    # 예외 처리: 입력이 비어 있거나 공백만 입력된 경우
-    if not user_answer3.strip():
-        print("⚠️ 답변이 비어 있거나 공백만 입력되었습니다. 다시 입력해주세요.")
-    elif user_answer3.isdigit():
-        print("⚠️ 숫자만 입력할 수 없습니다. 문장으로 답변을 작성해주세요.")
-    else:
-        break  # 유효한 입력이면 반복 종료
+        # 예외 처리: 입력이 비어 있거나 공백만 입력된 경우
+        if not user_answer3.strip():
+            print("⚠️ 답변이 비어 있거나 공백만 입력되었습니다. 다시 입력해주세요.")
+        elif user_answer3.isdigit():
+            print("⚠️ 숫자만 입력할 수 없습니다. 문장으로 답변을 작성해주세요.")
+        else:
+            break  # 유효한 입력이면 반복 종료
+    
     print(f"\n모범 답안: \n{model_answer3}") # 모범 답변 출력
 
     evaluation3 = evaluate_descriptive_answer(user_answer3, quiz3, model_answer3) # 서술형 답안 평가 함수 호출

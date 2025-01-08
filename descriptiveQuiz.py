@@ -1,60 +1,75 @@
 import openai
 import json
+import time
 
+# 함수 목록
+    # generate_descriptive_quiz
+    # evaluate_descriptive_answer
 
 
 #주관식#
     # 퀴즈 생성 함수
 def generate_descriptive_quiz(article_summary):
 
-    # 아티클에서 퀴즈 생성
-    prompt_quiz = f"""
-    당신은 '서술형 퀴즈 생성기'라는 역할을 맡게 됩니다. 당신의 목표는 아티클 기반 서술형 퀴즈 생성입니다. 서술형 퀴즈 생성기는 주어진 아티클을 기반으로 해당 아티클의 주제 요약 퀴즈를 한문제 출제하세요.
-    ## 작업 순서
-      1. 아티클 분석: 제공된 아티클의 내용을 분석하고 핵심 내용과 중요 포인트를 파악한다.
-      2. 퀴즈 출제: 아티클의 주요 내용을 기반으로 해당 아티클의 주제 요약에 대한 퀴즈를 한문장으로 한 문제 출제한다.
-    ## 주의사항
-      - 항상 아티클의 내용을 기반으로 객관적인 문제를 출제하세요.
-      - **한 개의 퀴즈만** 출제하세요.
-    아티클: {article_summary}
-    퀴즈:
-    """
-    response_quiz = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "당신은 서술형 퀴즈 생성기입니다."},
-            {"role": "user", "content": prompt_quiz}
-        ],
-        max_tokens=150,
-        temperature=0
-    )
-    quiz = response_quiz["choices"][0]["message"]["content"].strip()
+    while True:  # RateLimitError가 발생하면 재시도
+        try:
+            # 아티클에서 퀴즈 생성
+            prompt_quiz = f"""
+            당신은 '서술형 퀴즈 생성기'라는 역할을 맡게 됩니다. 당신의 목표는 아티클 기반 서술형 퀴즈 생성입니다. 서술형 퀴즈 생성기는 주어진 아티클을 기반으로 해당 아티클의 주제 요약 퀴즈를 한문제 출제하세요.
+            ## 작업 순서
+              1. 아티클 분석: 제공된 아티클의 내용을 분석하고 핵심 내용과 중요 포인트를 파악한다.
+              2. 퀴즈 출제: 아티클의 주요 내용을 기반으로 해당 아티클의 주제 요약에 대한 퀴즈를 한문장으로 한 문제 출제한다.
+            ## 주의사항
+              - 항상 아티클의 내용을 기반으로 객관적인 문제를 출제하세요.
+              - **한 개의 퀴즈만** 출제하세요.
+            아티클: {article_summary}
+            퀴즈:
+            """
 
-    # 모범 답안 생성
-    prompt_answer = f"""
-    당신은 '모범 답안 생성기'라는 역할을 맡게 됩니다. 모범 답안 생성기는 주어진 아티클을 기반으로 주어진 퀴즈 적합한 한 개의 모범 답안을 한 개 작성하세요.
-    ## 작업 순서
-      1. 아티클과 퀴즈 분석: 제공된 아티클과 퀴즈에 내용을 분석한다.
-      2. 모범 답안 생성: 주어진 아티클 기반으로 퀴즈에 대한  **한 개의 모범 답안**을  모범 답안을 2줄로 생성한다.
-    ## 주의사항
-      - 항상 아티클과 퀴즈 출제 내용을 기반으로 적절한 모범 답안을 출력하세요.
-      - **한 개의 모범 답안만** 작성하세요.
-    아티클: {article_summary}
-    퀴즈: {quiz}
-    모범 답안:
-    """
-    response_answer = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "당신은 모범 답안 생성기입니다."},
-            {"role": "user", "content": prompt_answer}
-        ],
-        max_tokens=150,
-        temperature=0
-    )
-    model_answer = response_answer["choices"][0]["message"]["content"].strip()
+            # Open API 호출출
+            response_quiz = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "당신은 서술형 퀴즈 생성기입니다."},
+                    {"role": "user", "content": prompt_quiz}
+                ],
+                max_tokens=150,
+                temperature=0
+            )
+            quiz = response_quiz["choices"][0]["message"]["content"].strip()
 
-    return quiz, model_answer
+            # 모범 답안 생성
+            prompt_answer = f"""
+            당신은 '모범 답안 생성기'라는 역할을 맡게 됩니다. 모범 답안 생성기는 주어진 아티클을 기반으로 주어진 퀴즈 적합한 한 개의 모범 답안을 한 개 작성하세요.
+            ## 작업 순서
+              1. 아티클과 퀴즈 분석: 제공된 아티클과 퀴즈에 내용을 분석한다.
+              2. 모범 답안 생성: 주어진 아티클 기반으로 퀴즈에 대한  **한 개의 모범 답안**을  모범 답안을 2줄로 생성한다.
+            ## 주의사항
+              - 항상 아티클과 퀴즈 출제 내용을 기반으로 적절한 모범 답안을 출력하세요.
+              - **한 개의 모범 답안만** 작성하세요.
+            아티클: {article_summary}
+            퀴즈: {quiz}
+            모범 답안:
+            """
+            response_answer = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "당신은 모범 답안 생성기입니다."},
+                    {"role": "user", "content": prompt_answer}
+                ],
+                max_tokens=150,
+                temperature=0
+            )
+            model_answer = response_answer["choices"][0]["message"]["content"].strip()
+
+            return quiz, model_answer
+
+        except openai.error.RateLimitError:  
+            print("Rate limit reached. Retrying in 40 seconds...")
+            time.sleep(40)
+
+
+
 
 
     # 서술형 평가 함수
@@ -96,38 +111,45 @@ def evaluate_descriptive_answer(user_answer, quiz, model_answer):
       }}
     }}
     """
-    try:
-        # GPT 호출
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "당신은 서술형 퀴즈 평가자입니다."},
-                {"role": "user", "content": prompt_evaluation}
-            ],
-            max_tokens=500,
-            temperature=0
-        )
 
-        # GPT 응답 추출
-        evaluation = response["choices"][0]["message"]["content"].strip()
+    while True:  # RateLimitError가 발생하면 재시도
+        try:
+            # GPT 호출
+            response = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "당신은 서술형 퀴즈 평가자입니다."},
+                    {"role": "user", "content": prompt_evaluation}
+                ],
+                max_tokens=500,
+                temperature=0
+            )
 
-        # # [DEBUG] 디버깅용 출력
-        # print("디버깅용 Raw GPT Output:", evaluation)
+            # GPT 응답 추출
+            evaluation = response["choices"][0]["message"]["content"].strip()
 
-        # BOM 제거 및 UTF-8 처리
-        evaluation = evaluation.lstrip('\ufeff')
-        evaluation = evaluation.encode('utf-8').decode('utf-8')
+            # BOM 제거 및 UTF-8 처리
+            evaluation = evaluation.lstrip('\ufeff')
+            evaluation = evaluation.encode('utf-8').decode('utf-8')
 
-        # JSON 변환
-        return json.loads(evaluation)
+            # JSON 변환
+            return json.loads(evaluation)
 
-    except UnicodeDecodeError as e:
-        print(f"유니코드 디코딩 오류 발생: {e}")
-    except json.JSONDecodeError as e:
-        print(f"JSON 디코딩 오류 발생: {e}")
-        print("GPT 응답:", evaluation)  # 응답 내용 확인
+        except openai.error.RateLimitError:  
+            print("Rate limit reached. Retrying in 40 seconds...")
+            time.sleep(40)
 
-    # [MODIFIED] 오류 발생 시 기본값 반환
+        except UnicodeDecodeError as e:
+            print(f"유니코드 디코딩 오류 발생: {e}")
+            break  # 유니코드 디코딩 오류 발생 시 루프 종료
+
+        except json.JSONDecodeError as e:
+            print(f"JSON 디코딩 오류 발생: {e}")
+            print("GPT 응답:", evaluation)  # 응답 내용 확인
+            break  # JSON 디코딩 오류 발생 시 루프 종료
+
+
+    # 오류 발생 시 기본값 반환
     return {
         "total_score": 0,
         "criteria": {

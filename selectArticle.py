@@ -7,6 +7,13 @@ import json
 import os
 from dotenv import load_dotenv
 
+# 함수 목록
+    # extract_keywords
+    # Google_API
+    # find_recommend_article
+    # get_article_body
+    # process_recommend_article
+
 #키워드 추출
 """
     Parameters:
@@ -19,81 +26,79 @@ from dotenv import load_dotenv
 """
 
 def extract_keywords(query, user_feedback, max_keywords=3):
-    try:
-        # GPT에 전달할 역할 설명
-        role_description = f"""
-        # 역할
-        당신은 SEO(검색 엔진 최적화)에 최적화된 키워드를 생성하는 역할을 합니다.
-        - 사용자 피드백에서 검색 가능성을 극대화하는 핵심 키워드를 추출하세요.
-        - 만약 사용자 피드백이 없다면 쿼리를 사용해 키워드를 생성하세요.
-
-        # 키워드 추출 규칙
-        1. **핵심 의미**:
-        - 검색 엔진에서 자주 검색될 가능성이 높은 단어를 선택하세요.
-        - 명사 중심의 구체적이고 직관적인 키워드를 사용하세요.
-        - 동일한 단어를 가진 키워드는 통합합니다.
-        - 중복된 키워드가 없어야 합니다.
-        - 쿼리를 사용해 생성한 키워드는 쿼리와 동일하면 안 됩니다.
-        2. **형식**:
-        - 키워드의 개수>1 && 키워드의 개수 <=3
-        3. **출력 형식**:
-        JSON 형식으로 반환하세요:
-        ```json
-        ["키워드1", "키워드2", ...]
-        ```
-        """
-
-        # GPT 호출
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": role_description
-                },
-                {
-                    "role": "user",
-                    "content": f"사용자 피드백: {user_feedback}\n쿼리: {query}\n\n사용자 피드백과 관련된 키워드를 생성해주세요. 만약 사용자 피드백이 없다면, 쿼리와 관련된 키워드를 생성해주세요. 생성된 키워드는 쿼리와 동일하면 안 됩니다."
-
-                }
-            ],
-            temperature=0,
-            max_tokens=50,
-            top_p=1,
-            frequency_penalty=0,
-            presence_penalty=0
-        )
-
-        # GPT의 응답에서 키워드 추출
-        keywords_json = response['choices'][0]['message']['content']
-
-        # JSON 부분만 추출
-        start_idx = keywords_json.find("[")
-        end_idx = keywords_json.find("]") + 1
-
-        if start_idx != -1 and end_idx != -1:
-            keywords_json = keywords_json[start_idx:end_idx]
-
+    while True:  # RateLimitError 발생 시 재시도하도록
         try:
-            # JSON 형식으로 응답을 파싱
-            keywords = json.loads(keywords_json)
-            # 중복 키워드 제거 및 최대 max_keywords로 제한
-            unique_keywords = list(dict.fromkeys(keywords))[:max_keywords]
-            return unique_keywords
+            # GPT에 전달할 역할 설명
+            role_description = f"""
+            # 역할
+            당신은 SEO(검색 엔진 최적화)에 최적화된 키워드를 생성하는 역할을 합니다.
+            - 사용자 피드백에서 검색 가능성을 극대화하는 핵심 키워드를 추출하세요.
+            - 만약 사용자 피드백이 없다면 쿼리를 사용해 키워드를 생성하세요.
 
-        except json.JSONDecodeError:
-            print(f"Error decoding JSON: {keywords_json}")
+            # 키워드 추출 규칙
+            1. **핵심 의미**:
+            - 검색 엔진에서 자주 검색될 가능성이 높은 단어를 선택하세요.
+            - 명사 중심의 구체적이고 직관적인 키워드를 사용하세요.
+            - 동일한 단어를 가진 키워드는 통합합니다.
+            - 중복된 키워드가 없어야 합니다.
+            - 쿼리를 사용해 생성한 키워드는 쿼리와 동일하면 안 됩니다.
+            2. **형식**:
+            - 키워드의 개수>1 && 키워드의 개수 <=3
+            3. **출력 형식**:
+            JSON 형식으로 반환하세요:
+            ```json
+            ["키워드1", "키워드2", ...]
+            ```
+            """
+
+            # Open API 호출
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": role_description
+                    },
+                    {
+                        "role": "user",
+                        "content": f"사용자 피드백: {user_feedback}\n쿼리: {query}\n\n사용자 피드백과 관련된 키워드를 생성해주세요. 만약 사용자 피드백이 없다면, 쿼리와 관련된 키워드를 생성해주세요. 생성된 키워드는 쿼리와 동일하면 안 됩니다."
+                    }
+                ],
+                temperature=0,
+                max_tokens=50,
+                top_p=1,
+                frequency_penalty=0,
+                presence_penalty=0
+            )
+
+            # GPT의 응답에서 키워드 추출
+            keywords_json = response['choices'][0]['message']['content']
+
+            # JSON 부분만 추출
+            start_idx = keywords_json.find("[")
+            end_idx = keywords_json.find("]") + 1
+
+            if start_idx != -1 and end_idx != -1:
+                keywords_json = keywords_json[start_idx:end_idx]
+
+            try:
+                # JSON 형식으로 응답을 파싱
+                keywords = json.loads(keywords_json)
+                # 중복 키워드 제거 및 최대 max_keywords로 제한
+                unique_keywords = list(dict.fromkeys(keywords))[:max_keywords]
+                return unique_keywords
+
+            except json.JSONDecodeError:
+                print(f"Error decoding JSON: {keywords_json}")
+                return []
+
+        except Exception as e:
+            print(f"Error during OpenAI API call: {e}")
             return []
-        except openai.error.RateLimitError:
-          print("Rate limit reached. Retrying in 30 seconds...")
-          time.sleep(30)
-
-    except Exception as e:
-        print(f"Error during OpenAI API call: {e}")
-        return []
-    except openai.error.RateLimitError:
-        print("Rate limit reached. Retrying in 30 seconds...")
-        time.sleep(30)
+        
+        except openai.error.RateLimitError: 
+            print("Rate limit reached. Retrying in 40 seconds...")
+            time.sleep(40)  
 
 
 
@@ -184,82 +189,87 @@ def find_recommend_article(df_google, user_feedback):
     article_descriptions = df_google['Description'].tolist()
     article_indices = df_google.index.tolist()  # DataFrame의 index를 리스트로 저장
 
-    # OpenAI API 호출
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "# 지시문\n"
-                    "당신은 사용자의 피드백과 아티클의 제목 및 설명을 기반으로 "
-                    "사용자에게 적합한 아티클을 추천하는 어플리케이션의 역할을 한다.\n"
-                    "# 추천 조건\n"
-                    "1. 사용자 피드백의 질문이나 요청에 답변이 될 수 있는 아티클이어야 한다.\n"
-                    "2. 단순 뉴스 보도, 광고성 내용, 또는 중복된 내용은 제외해야 한다.\n"
-                    "3. 구체적인 주제를 포함하고 있어야 한다.\n"
-                    "4. 사용자의 피드백과 가장 관련성이 높은 내용을 다루는 아티클이어야 한다.\n"
-                    "5. 제목이 명확하지 않을 경우, 설명을 중심으로 판단한다.\n"
-                    "6. 지식적인 설명 또는 학습에 도움을 줄 수 있는 내용이 포함되어야 한다.\n"
-                    "# 출력 형식\n"
-                    "당신의 답변을 항상 다음 형식의 JSON으로 작성하세요:\n"
-                    "{\n"
-                    "  \"index\": \"추천된 아티클의 고유 index\",\n"
-                    "  \"reason\": \"왜 이 아티클이 적합한지 간단히 설명\"\n"
-                    "}"
-                )
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"사용자 피드백: {user_feedback}\n\n"
-                    "아티클 목록 (index 포함):\n"
-                    + "\n".join(
-                        f"{i}. [Index: {idx}] 제목: {title}\n   설명: {description}\n  "
-                        for i, (idx, title, description) in enumerate(
-                            zip(article_indices, article_titles, article_descriptions)
+    while True:  # RateLimitError 발생 시 재시도하도록
+        try:
+            # Open API 호출
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{
+                    "role": "system",
+                    "content": (
+                        "# 지시문\n"
+                        "당신은 사용자의 피드백과 아티클의 제목 및 설명을 기반으로 "
+                        "사용자에게 적합한 아티클을 추천하는 어플리케이션의 역할을 한다.\n"
+                        "# 추천 조건\n"
+                        "1. 사용자 피드백의 질문이나 요청에 답변이 될 수 있는 아티클이어야 한다.\n"
+                        "2. 단순 뉴스 보도, 광고성 내용, 또는 중복된 내용은 제외해야 한다.\n"
+                        "3. 구체적인 주제를 포함하고 있어야 한다.\n"
+                        "4. 사용자의 피드백과 가장 관련성이 높은 내용을 다루는 아티클이어야 한다.\n"
+                        "5. 제목이 명확하지 않을 경우, 설명을 중심으로 판단한다.\n"
+                        "6. 지식적인 설명 또는 학습에 도움을 줄 수 있는 내용이 포함되어야 한다.\n"
+                        "# 출력 형식\n"
+                        "당신의 답변을 항상 다음 형식의 JSON으로 작성하세요:\n"
+                        "{\n"
+                        "  \"index\": \"추천된 아티클의 고유 index\",\n"
+                        "  \"reason\": \"왜 이 아티클이 적합한지 간단히 설명\"\n"
+                        "}"
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"사용자 피드백: {user_feedback}\n\n"
+                        "아티클 목록 (index 포함):\n"
+                        + "\n".join(
+                            f"{i}. [Index: {idx}] 제목: {title}\n   설명: {description}\n  "
+                            for i, (idx, title, description) in enumerate(
+                                zip(article_indices, article_titles, article_descriptions)
+                            )
                         )
                     )
-                )
-            }
-        ],
-        temperature=0,
-        max_tokens=2048,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0
-    )
+                }],
+                temperature=0,
+                max_tokens=2048,
+                top_p=1,
+                frequency_penalty=0,
+                presence_penalty=0
+            )
 
-    # GPT 응답에서 JSON 데이터 추출
-    raw_content = response["choices"][0]["message"]["content"].strip("```json").strip("```").strip()
-    try:
-        response_json = json.loads(raw_content)
-    except json.JSONDecodeError:
-        print("GPT 응답이 JSON 형식이 아닙니다. 다시 요청하세요.")
-        return pd.DataFrame()
+            # GPT 응답에서 JSON 데이터 추출
+            raw_content = response["choices"][0]["message"]["content"].strip("```json").strip("```").strip()
+            try:
+                response_json = json.loads(raw_content)
+            except json.JSONDecodeError:
+                print("GPT 응답이 JSON 형식이 아닙니다. 다시 요청하세요.")
+                return pd.DataFrame()
 
-    # index 검증
-    if "index" not in response_json or "reason" not in response_json:
-        print("GPT 응답에서 index 또는 reason이 누락되었습니다.")
-        return pd.DataFrame()
+            # index 검증
+            if "index" not in response_json or "reason" not in response_json:
+                print("GPT 응답에서 index 또는 reason이 누락되었습니다.")
+                return pd.DataFrame()
 
-    try:
-        recommended_index = int(response_json["index"])  # index를 정수로 변환
-    except ValueError:
-        print("GPT가 반환한 index가 숫자가 아닙니다. 다시 요청하세요.")
-        return pd.DataFrame()
+            try:
+                recommended_index = int(response_json["index"])  # index를 정수로 변환
+            except ValueError:
+                print("GPT가 반환한 index가 숫자가 아닙니다. 다시 요청하세요.")
+                return pd.DataFrame()
 
-    # index가 DataFrame에 존재하는지 확인
-    if recommended_index not in df_google.index:
-        print(f"추천된 index({recommended_index})가 데이터베이스에 없습니다.")
-        return pd.DataFrame()
+            # index가 DataFrame에 존재하는지 확인
+            if recommended_index not in df_google.index:
+                print(f"추천된 index({recommended_index})가 데이터베이스에 없습니다.")
+                return pd.DataFrame()
 
-    # 추천 이유 출력
-    print(f"추천된 이유: {response_json['reason']}")
+            # 추천 이유 출력
+            print(f"추천된 이유: {response_json['reason']}")
 
-    # 해당 index로 행 반환
-    recommended_article = df_google.loc[[recommended_index]]
-    return recommended_article
+            # 해당 index로 행 반환
+            recommended_article = df_google.loc[[recommended_index]]
+            return recommended_article
+
+        except openai.error.RateLimitError: 
+            print("Rate limit reached. Retrying in 40 seconds...")
+            time.sleep(40)  # 40초 지연 후 재시도
+            continue  #
 
 
 

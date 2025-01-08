@@ -1,6 +1,13 @@
 import openai
+import time
 
 #객관식#
+
+# 함수 목록 
+    # generate_multiple_choice_quiz_with_check
+    # check_answer
+
+
 def generate_multiple_choice_quiz_with_check(summary, previous_quiz=None):
     """
     기사 요약을 기반으로 객관식 문제를 생성하고, 정답을 반환합니다.
@@ -27,17 +34,23 @@ def generate_multiple_choice_quiz_with_check(summary, previous_quiz=None):
     {summary}
     객관식 문제:
     """
-
-    response_quiz = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "당신은 객관식 퀴즈 생성기입니다."},
-            {"role": "user", "content": prompt_quiz}
-        ],
-        max_tokens=300,
-        temperature=0
-    )
-    quiz = response_quiz["choices"][0]["message"]["content"].strip()
+    while True:  # RateLimitError가 발생하면 재시도
+        try:
+            # Open API 호출
+            response_quiz = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "당신은 객관식 퀴즈 생성기입니다."},
+                    {"role": "user", "content": prompt_quiz}
+                ],
+                max_tokens=300,
+                temperature=0
+            )
+            quiz = response_quiz["choices"][0]["message"]["content"].strip()
+            break  # 정상적으로 응답을 받으면 루프 종료
+        except openai.error.RateLimitError:  
+            print("Rate limit reached. Retrying in 40 seconds...")
+            time.sleep(40)  # 40초 대기 후 재시도
 
     # 정답 생성 프롬프트
     prompt_answer = f"""
@@ -54,20 +67,25 @@ def generate_multiple_choice_quiz_with_check(summary, previous_quiz=None):
     정답:
     """
 
-    response_answer = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "당신은 정답 생성기입니다."},
-            {"role": "user", "content": prompt_answer}
-        ],
-        max_tokens=5,
-        temperature=0
-    )
+    while True:   # RateLimitError가 발생하면 재시도
+        try:
+            # Open API 호출
+            response_answer = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "당신은 정답 생성기입니다."},
+                    {"role": "user", "content": prompt_answer}
+                ],
+                max_tokens=5,
+                temperature=0
+            )
+            answer_content = response_answer["choices"][0]["message"]["content"].strip()
+            break  # 정상적으로 응답을 받으면 루프 종료
+        except openai.error.RateLimitError:  
+            print("Rate limit reached. Retrying in 40 seconds...")
+            time.sleep(40)  # 40초 대기 후 재시도
 
     # 정답을 추출할 때 '정답을 숫자로'와 같은 잘못된 값이 나오지 않도록 처리
-    answer_content = response_answer["choices"][0]["message"]["content"].strip()
-
-    # 모델 응답에서 숫자만 추출
     try:
         correct_answer = int(answer_content)  # 실제로 정답 번호가 숫자로 반환되는지 확인
     except ValueError:
