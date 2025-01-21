@@ -55,8 +55,12 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 ###실행###
+user_feedback_list = []
+query = []
+
 # 사용자에 학습하길 원하는 분야에 대한 입력을 요청
 user_feedback = input("안녕하세요!\n🔍 어떤 주제에 대해 학습하고 싶으신가요? 입력해주시면 관련된 퀴즈로 안내드릴게요!\n >>")
+add_user_feedback(user_feedback, user_feedback_list)
 
 # 퀴즈 시작을 알리는 메시지 출력
 print("\n🎉퀴즈를 시작합니다! 최선을 다해보세요!✨")
@@ -84,32 +88,66 @@ for k in range(3):
     print(f"\n\n\n\n================================================={k+1}번째 아티클=================================================")
 
 
-    #키워드 추출
-    extracted_keywords = extract_keywords(query, user_feedback, max_keywords=3)
-    print("추출된 키워드:", extracted_keywords)
-
-
     #기사 검색어 설정
-    query_parts.extend(extracted_keywords)  # 추출된 키워드 저장
-    query_parts = list(set(query_parts))  # 중복쿼리 삭제
-    query = " ".join(query_parts)
-    print("최종 검색어:", query)
-    print("\n")
+    extracted_keywords = extract_keywords(query, user_feedback_list, max_keywords=3)
+    if extracted_keywords:
+        query = extracted_keywords  # 추출된 키워드 저장(기존 키워드 삭제 됨)
+        query = list(set(query))  # 중복 제거
+        print("최종 검색어:", query)
+        print("\n")
+    else:
+        print("키워드 추출 실패. 초기 쿼리 설정 필요.")
 
 
     #article Search
-    df = Google_API(query=query, wanted_row_per_site=wanted_row_per_site, sites=sites)#주어진 query(키워드)로 탐색된 기사 목록
+    df = Google_API(query=query, wanted_row_per_site=wanted_row_per_site, sites=sites) #주어진 query(키워드)로 탐색된 기사 목록
     time.sleep(30)  # 30초 동안 프로그램이 멈춤 # 생성 토큰 제한 문제 예방
 
 
-    # find recommended article
-    info_for_the_article = process_recommend_article(df, user_feedback)
+    # 추천된 아티클이 없거나 본문 추출이 실패할 경우 루프 실행
+    # 동일 아티클 추천 방지 필요 -> cache 적용
+    while True:
+        # 추천 아티클 처리
+        info_for_the_article = process_recommend_article(df, user_feedback_list)
 
+        if info_for_the_article is None or info_for_the_article.empty:
+            # 추천된 아티클이 없을 경우 NOARTICLE 처리
+            print("추천된 아티클이 없습니다. 새로운 키워드 생성 중...")
+
+            # "NOARTICLE"을 기존 query에 추가
+            if "NOARTICLE" not in query:  # 중복 추가 방지
+                query.append("NOARTICLE")
+
+                # 키워드 추출
+                extracted_keywords = extract_keywords(query, user_feedback_list, max_keywords=3)
+                if extracted_keywords:
+                    query = extracted_keywords  # 추출된 키워드 저장(기존 키워드 삭제 됨)
+                    query = list(set(query))  # 중복 제거
+                    print("새로운 검색어로 설정된 키워드:", query)
+                else:
+                    print("키워드 추출 실패. 초기 쿼리 설정 필요.")
+
+                # Google API로 새로운 검색 수행
+                df = Google_API(query, wanted_row_per_site=5, sites=sites)
+                if df.empty:
+                    print("새로운 검색어로도 결과를 찾지 못했습니다. 다시 시도 중...")
+                    continue  # 검색 실패 시 다시 반복
+            else:
+                print("새로운 키워드 생성 실패. 루프 종료.")
+                break
+        else:
+            # 추천된 아티클에서 URL 및 본문 추출
+            recommend_article_url = info_for_the_article.iloc[0]["URL"]
+            recommend_article_body = info_for_the_article.iloc[0]["Body"]
+
+            # 본문이 유효한지 확인
+            # IndexError: single positional indexer is out-of-bounds -> recommend_article_body (DataFrame)이 빈 경우 종종 발생!
+            if recommend_article_body and len(recommend_article_body.strip()) > 0:
+                print("추천 아티클 URL:", recommend_article_url)
+                print("추천 아티클 본문:\n", recommend_article_body[:100], "...")  # 본문 일부 출력
+                break  # 본문 추출 성공 시 루프 종료
     
-    # URL 추출
-    # IndexError: single positional indexer is out-of-bounds -> recommend_article_body (DataFrame)이 빈 경우 종종 발생!
-    recommend_article_body = info_for_the_article.iloc[0]['Body']
-
+  
     #기사 요약 출력
     article_summary = summarize_article(recommend_article_body)
     print("기사 최종 요약:")
