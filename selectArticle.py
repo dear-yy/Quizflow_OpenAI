@@ -8,47 +8,67 @@ import os
 from dotenv import load_dotenv
 
 # 함수 목록
+    # add_User_feedback
     # extract_keywords
     # Google_API
     # find_recommend_article
     # get_article_body
     # process_recommend_article
 
+
+# 사용자 피드백 추가 함수
+def add_user_feedback(feedback, feedback_list):
+    if feedback.strip():  # 공백이 아닌 경우에만 추가
+        index = len(feedback_list)  # 현재 피드백 리스트 길이로 인덱스 생성
+        feedback_list.append({"index": index, "feedback": feedback.strip()})
+    else:  # 공백인 경우 "nofeedback" 추가
+        index = len(feedback_list)
+        feedback_list.append({"index": index, "feedback": "NOFEEDBACK"})
+    return feedback_list
+
+
 #키워드 추출
 """
     Parameters:
         query (str): 기본 검색어. 사용자의 피드백이 비어 있을 경우 사용.
-        user_feedback (str): 사용자가 입력한 텍스트.
+        user_feedback_list (str): 사용자가 입력한 텍스트.
         max_keywords (int): 반환할 최대 키워드 수. 기본값은 3.
 
     Returns:
         list: 추출된 SEO 키워드 리스트.
 """
 
-def extract_keywords(query, user_feedback, max_keywords=3):
+def extract_keywords(query, user_feedback_list, max_keywords=3):
     while True:  # RateLimitError 발생 시 재시도하도록
         try:
             # GPT에 전달할 역할 설명
             role_description = f"""
-            # 역할
-            당신은 SEO(검색 엔진 최적화)에 최적화된 키워드를 생성하는 역할을 합니다.
-            - 사용자 피드백에서 검색 가능성을 극대화하는 핵심 키워드를 추출하세요.
-            - 만약 사용자 피드백이 없다면 쿼리를 사용해 키워드를 생성하세요.
+            당신의 역할은 SEO(검색 엔진 최적화)에 최적화된 키워드를 생성하는 것입니다.
 
-            # 키워드 추출 규칙
-            1. **핵심 의미**:
-            - 검색 엔진에서 자주 검색될 가능성이 높은 단어를 선택하세요.
-            - 명사 중심의 구체적이고 직관적인 키워드를 사용하세요.
-            - 동일한 단어를 가진 키워드는 통합합니다.
-            - 중복된 키워드가 없어야 합니다.
-            - 쿼리를 사용해 생성한 키워드는 쿼리와 동일하면 안 됩니다.
-            2. **형식**:
-            - 키워드의 개수>1 && 키워드의 개수 <=3
+            1. **키워드 생성 조건**:
+              - 최신 피드백(리스트에서 인덱스가 높은 순서)을 우선적으로 고려하여 검색 가능성이 높은 핵심 키워드를 추출하세요.
+              - 최신 피드백이 'NOFEEDBACK'인 경우:
+                - 기존 쿼리(query)를 참고하여 더 세부적이고 구체적인 키워드를 생성하세요.
+                - 기존 쿼리와 중복되지 않는 새로운 키워드를 생성해야 합니다.
+              - 사용자 피드백 리스트가 전부 'NOFEEDBACK'인 경우:
+                다음 주제 중 하나를 무작위로 선택하세요:
+                  <역사,철학,과학,예술,기술,문화,건강>
+                - 선택한 주제를 기반으로 검색 가능성이 높은 키워드를 생성하세요.
+              - 쿼리가 'NOARTICLE'로 끝나면:
+                - 쿼리의 마지막을 제외하고 나머지 내용을 기반으로 더 일반적이고 포괄적인 키워드를 생성하세요.
+
+            2. **키워드 생성 규칙**:
+              - 검색 엔진에서 자주 검색될 가능성이 높은 단어를 선택하세요.
+              - 명사 중심의 구체적이고 직관적인 키워드를 사용하세요.
+              - 동일한 단어나 중복된 키워드는 제외하세요.
+              - 키워드는 최대 2단어입니다.
+
             3. **출력 형식**:
-            JSON 형식으로 반환하세요:
-            ```json
-            ["키워드1", "키워드2", ...]
-            ```
+              - 키워드의 개수는 최소 2개, 최대 {max_keywords}개로 제한하세요.
+              - JSON 형식으로 반환하세요. 예:
+                ```json
+                  ["키워드1", "키워드2", "키워드3", ...]
+                ```
             """
 
             # Open API 호출
@@ -61,7 +81,11 @@ def extract_keywords(query, user_feedback, max_keywords=3):
                     },
                     {
                         "role": "user",
-                        "content": f"사용자 피드백: {user_feedback}\n쿼리: {query}\n\n사용자 피드백과 관련된 키워드를 생성해주세요. 만약 사용자 피드백이 없다면, 쿼리와 관련된 키워드를 생성해주세요. 생성된 키워드는 쿼리와 동일하면 안 됩니다."
+                        "content": (
+                            f"사용자 피드백 (최신 피드백 우선 정렬): {user_feedback_list}\n"
+                            f"쿼리: {query}\n\n"
+                            "키워드를 생성해주세요."
+                        )
                     }
                 ],
                 temperature=0,
@@ -183,7 +207,7 @@ def Google_API(query, wanted_row_per_site, sites):
 
 
 #추천 아티클 결정#
-def find_recommend_article(df_google, user_feedback):
+def find_recommend_article(df_google, user_feedback_list):
     # 아티클 목록에 index 포함
     article_titles = df_google['Title'].tolist()
     article_descriptions = df_google['Description'].tolist()
@@ -194,40 +218,43 @@ def find_recommend_article(df_google, user_feedback):
             # Open API 호출
             response = openai.ChatCompletion.create(
                 model="gpt-4",
-                messages=[{
-                    "role": "system",
-                    "content": (
-                        "# 지시문\n"
-                        "당신은 사용자의 피드백과 아티클의 제목 및 설명을 기반으로 "
-                        "사용자에게 적합한 아티클을 추천하는 어플리케이션의 역할을 한다.\n"
-                        "# 추천 조건\n"
-                        "1. 사용자 피드백의 질문이나 요청에 답변이 될 수 있는 아티클이어야 한다.\n"
-                        "2. 단순 뉴스 보도, 광고성 내용, 또는 중복된 내용은 제외해야 한다.\n"
-                        "3. 구체적인 주제를 포함하고 있어야 한다.\n"
-                        "4. 사용자의 피드백과 가장 관련성이 높은 내용을 다루는 아티클이어야 한다.\n"
-                        "5. 제목이 명확하지 않을 경우, 설명을 중심으로 판단한다.\n"
-                        "6. 지식적인 설명 또는 학습에 도움을 줄 수 있는 내용이 포함되어야 한다.\n"
-                        "# 출력 형식\n"
-                        "당신의 답변을 항상 다음 형식의 JSON으로 작성하세요:\n"
-                        "{\n"
-                        "  \"index\": \"추천된 아티클의 고유 index\",\n"
-                        "  \"reason\": \"왜 이 아티클이 적합한지 간단히 설명\"\n"
-                        "}"
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"사용자 피드백: {user_feedback}\n\n"
-                        "아티클 목록 (index 포함):\n"
-                        + "\n".join(
-                            f"{i}. [Index: {idx}] 제목: {title}\n   설명: {description}\n  "
-                            for i, (idx, title, description) in enumerate(
-                                zip(article_indices, article_titles, article_descriptions)
-                            )
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "# 지시문\n"
+                            "당신은 사용자의 피드백과 아티클의 제목 및 설명을 기반으로 "
+                            "사용자에게 적합한 아티클을 추천하는 어플리케이션의 역할을 한다.\n"
+
+                            "# 추천 조건\n"
+                            "1. 최신 피드백(리스트에서 인덱스가 높은 순서)을 우선적으로 고려하세요.\n"
+                            "2. 최신 피드백이 다루는 주제와 가장 관련이 있는 아티클을 선택하세요.\n"
+                            "3. 제목과 설명을 기반으로 아티클의 적합성을 판단하세요.\n"
+                            "4. 단순 뉴스 보도, 광고성 내용, 또는 중복된 내용은 제외하세요.\n"
+                            "5. 지식적인 설명 또는 학습에 도움을 줄 수 있는 내용이 포함되어야 한다.\n"
+
+                            "# 출력 형식\n"
+                            "당신의 답변을 항상 다음 형식의 JSON으로 작성하세요:\n"
+                            "{\n"
+                            "  \"index\": \"추천된 아티클의 고유 index\",\n"
+                            "  \"reason\": \"왜 이 아티클이 적합한지 간단히 설명\"\n"
+                            "}"
+                        )
+                    },
+                    {
+                "role": "user",
+                "content": (
+                    f"사용자 피드백: {user_feedback_list}\n\n"
+                    "아티클 목록 (index 포함):\n"
+                    + "\n".join(
+                        f"{i}. [Index: {idx}] 제목: {title}\n   설명: {description}\n  "
+                        for i, (idx, title, description) in enumerate(
+                            zip(article_indices, article_titles, article_descriptions)
                         )
                     )
-                }],
+                )
+            }
+        ],
                 temperature=0,
                 max_tokens=2048,
                 top_p=1,
@@ -342,6 +369,8 @@ def get_article_body(url, domain):
 
 
 #추천된 아티클에서 URL, Domain, Title을 추출
+#    본문(article body)을 가져오거나 없으면 해당 데이터를 삭제하고 새로운 추천을 요청하는 함수.
+
 def process_recommend_article(df=None, user_feedback=""):
     # 초기화: find
     recommend_article = pd.DataFrame(columns=['Title', 'URL', 'Body'])
@@ -352,7 +381,7 @@ def process_recommend_article(df=None, user_feedback=""):
         # 추천된 아티클이 비어 있는 경우 루프 종료
         if recommend_article.empty:
             print("추천된 아티클이 더 이상 없습니다.")
-            return pd.DataFrame(columns=['Title', 'URL', 'Body'])  # 빈 DataFrame 반환
+            return None
 
         try:
             # URL, Domain, Title 추출
